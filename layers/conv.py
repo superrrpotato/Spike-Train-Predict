@@ -95,9 +95,11 @@ class ConvLayer(nn.Conv3d):
         y = self.forward(x)
         shape = x.shape
         if shape[4] > shape[0] * 10:
-            y = TSSLBP.PSP_spike_long_time.apply(y, self.network_config, self.layer_config)
+            y = TSSLBP.PSP_spike_long_time.apply(y, self.network_config,\
+                    self.layer_config, self.name)
         else:
-            y = TSSLBP.PSP_spike_large_batch.apply(y, self.network_config, self.layer_config)
+            y = TSSLBP.PSP_spike_large_batch.apply(y, self.network_config,\
+                    self.layer_config, self.name)
         return y
 
     def weight_clipper(self):

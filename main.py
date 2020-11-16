@@ -58,6 +58,7 @@ def train(network, trainloader, opti, epoch, states, network_config, layers_conf
             labels = labels.to(device)
             inputs = inputs.to(device)
             inputs.type(dtype)
+            glv.stat_flag = False
             outputs = network.forward(inputs, epoch, True)
             # print("time cost forward:")
             # print(round((datetime.now() - start_time).total_seconds(), 2))
@@ -89,7 +90,8 @@ def train(network, trainloader, opti, epoch, states, network_config, layers_conf
             clip_grad_norm_(network.get_parameters(), 1)
             opti.step()
             network.weight_clipper()
-
+            glv.stat_flag = True
+            outputs = network.forward(inputs, epoch, True)
             spike_counts = torch.sum(outputs, dim=4).squeeze_(-1).squeeze_(-1).detach().cpu().numpy()
             predicted = np.argmax(spike_counts, axis=1)
             train_loss += torch.sum(loss).item()
@@ -195,7 +197,7 @@ if __name__ == '__main__':
     
     # Check whether a GPU is available
     if torch.cuda.is_available():
-        device = torch.device("cuda")
+        device = 1 #torch.device("cuda")
         cuda.init()
         c_device = aboutCudaDevices()
         print(c_device.info())

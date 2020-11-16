@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-from time import time 
+from time import time
 import global_v as glv
 
 
@@ -22,7 +22,7 @@ def psp(inputs, network_config):
 
 class PSP_spike_large_batch(torch.autograd.Function): 
     @staticmethod
-    def forward(ctx, inputs, network_config, layer_config):
+    def forward(ctx, inputs, network_config, layer_config, name):
         shape = inputs.shape
         n_steps = network_config['n_steps']
         theta_m = 1/network_config['tau_m']
@@ -64,6 +64,13 @@ class PSP_spike_large_batch(torch.autograd.Function):
         mem_updates = torch.stack(mem_updates, dim = 4)
         syns_posts = torch.stack(syns_posts, dim = 4)
         outputs = torch.stack(outputs, dim = 4)
+        if not glv.stat_flag:
+            glv.output_ori_dict[name] = outputs
+            glv.memb_p_ori_dict[name] = mems
+        else:
+            glv.output_new_dict[name] = outputs
+            glv.memb_p_new_dict[name] = mems
+
         ctx.save_for_backward(mem_updates, outputs, mems, delta_refs, torch.tensor([threshold]))
         return syns_posts
 
@@ -109,9 +116,9 @@ class PSP_spike_large_batch(torch.autograd.Function):
         return grad, None, None, None, None, None, None, None, None
 
 
-class PSP_spike_long_time(torch.autograd.Function):  
+class PSP_spike_long_time(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, inputs, network_config, layer_config):
+    def forward(ctx, inputs, network_config, layer_config, name):
         shape = inputs.shape
         n_steps = network_config['n_steps']
         theta_m = 1/network_config['tau_m']
@@ -153,6 +160,14 @@ class PSP_spike_long_time(torch.autograd.Function):
         mem_updates = torch.stack(mem_updates, dim = 4)
         syns_posts = torch.stack(syns_posts, dim = 4)
         outputs = torch.stack(outputs, dim = 4)
+        if not glv.stat_flag:
+            glv.output_ori_dict[name] = outputs
+            glv.memb_p_ori_dict[name] = mems
+        else:
+            glv.output_new_dict[name] = outputs
+            glv.memb_p_new_dict[name] = mems
+
+
         ctx.save_for_backward(mem_updates, outputs, mems, delta_refs, torch.tensor([threshold]))
         return syns_posts
 

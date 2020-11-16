@@ -8,18 +8,25 @@ partial_a = None
 syn_a = None
 tau_s = None
 
-def init(dty, dev, n_t, ts):   # a(t_k) = (1/tau)exp(-(t_k-t_m)/tau)H(t_k-t_m)
+def init(dty, dev, params):   # a(t_k) = (1/tau)exp(-(t_k-t_m)/tau)H(t_k-t_m)
     global dtype, device, n_steps, partial_a, syn_a, tau_s, stat_flag,\
-    output_ori_dict, output_new_dict, memb_p_ori_dict, memb_p_new_dict
+    output_ori_dict, output_new_dict, memb_p_ori_dict, memb_p_new_dict,\
+    accuracy_stat_dict, threshold_dict, dims_dict
     dtype = dty
     device = dev
-    n_steps = n_t
-    tau_s = ts
+    n_steps = params['Network']['n_steps']
+    tau_s = params['Network']['tau_s']
+    threshold_dict = {}
+    layers_config = params['Layers']
+    for key in layers_config:
+        threshold_dict[key] = layers_config[key]['threshold']
     stat_flag  = False
     output_ori_dict = {}
     output_new_dict = {}
     memb_p_ori_dict = {}
     memb_p_new_dict = {}
+    accuracy_stat_dict = {}
+    dims_dict = {}
     partial_a = torch.zeros((1, 1, 1, 1, n_steps, n_steps), dtype=dtype).to(device)
     for t in range(n_steps):
         if t > 0:

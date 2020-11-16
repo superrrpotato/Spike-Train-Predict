@@ -21,7 +21,7 @@ import pandas as pd
 import seaborn as sn
 import matplotlib.pyplot as plt
 import argparse
-
+import predict
 
 max_accuracy = 0
 min_loss = 1000
@@ -90,17 +90,17 @@ def train(network, trainloader, opti, epoch, states, network_config, layers_conf
             clip_grad_norm_(network.get_parameters(), 1)
             opti.step()
             network.weight_clipper()
-            glv.stat_flag = True
-            outputs = network.forward(inputs, epoch, True)
             spike_counts = torch.sum(outputs, dim=4).squeeze_(-1).squeeze_(-1).detach().cpu().numpy()
             predicted = np.argmax(spike_counts, axis=1)
             train_loss += torch.sum(loss).item()
             labels = labels.cpu().numpy()
             total += len(labels)
             correct += (predicted == labels).sum().item()
+            glv.stat_flag = True
+            outputs = network.forward(inputs, epoch, True)
+            predict.Spike_train_predict()
         else:
             raise Exception('Unrecognized rule name.')
-
         states.training.correctSamples = correct
         states.training.numSamples = total
         states.training.lossSum += loss.cpu().data.item() 
@@ -206,7 +206,7 @@ if __name__ == '__main__':
         device = torch.device("cpu")
         print("No GPU is found")
     
-    glv.init(dtype, device, params['Network']['n_steps'], params['Network']['tau_s'] )
+    glv.init(dtype, device, params)
     
     logging.info("dataset loaded")
     if params['Network']['dataset'] == "MNIST":

@@ -15,7 +15,7 @@ def Pattern_change_predict(outputs, u, k):
     if k not in glv.dims_dict:
         glv.dims_dict[k] = torch.tensor(list(range(neuron_num)), device = glv.device)
     dim1 = glv.dims_dict[k]
-    near_by = flip_dist[dim1, min_index] < 0 # Hard threshold guess change
+    near_by = flip_dist[dim1, min_index] < 0.1 # Hard threshold guess change
     while near_by.any() == True:
         new_output[dim1, min_index] = new_output[dim1, min_index] ^ near_by
         near_by = near_by & (min_index != time_steps - 1)
@@ -26,14 +26,25 @@ def Pattern_change_predict(outputs, u, k):
                 (near_by&(nopp==0)&((0.2<mbp)&(mbp<1))))
     return new_output
 
-def Accuracy_stat(predict, answer):
+def Accuracy_stat(predict, answer, ori_output):
     shape = answer.shape
     neuron_num = shape[0] * shape[1] * shape[2] * shape[3]
     answer = answer.view(neuron_num, -1)
+    ori_output = ori_output.view(neuron_num, -1)
     predict = predict > 0
     answer = answer > 0
-    correct = torch.sum(torch.sum(answer == predict, axis=1) == shape[-1])
-    return neuron_num, correct
+    ori_output = ori_output > 0
+    changed_ans = torch.sum(ori_output == answer, axis=1) < shape[-1]
+    changed_num = torch.sum(changed_ans, dtype = glv.dtype)
+    predict_change = torch.sum(ori_output == predict, axis=1) < shape[-1]
+    predict_num = torch.sum(predict_change, dtype = glv.dtype)
+    currect_predict_per_change = torch.sum(predict_change & changed_ans,\
+            dtype=glv.dtype)/changed_num
+    currect_predict_per_predict = torch.sum(predict_change & changed_ans,\
+            dtype=glv.dtype)/predict_num
+    correct = torch.sum(torch.sum(answer == predict, axis=1) == shape[-1],\
+            dtype = glv.dtype)
+    return currect_predict_per_change, currect_predict_per_predict
 
 
 def Spike_train_predict():
@@ -44,4 +55,5 @@ def Spike_train_predict():
     for k in output_ori_dict.keys():
         predict = Pattern_change_predict(output_ori_dict[k],\
                 memb_p_ori_dict[k], k)
-        glv.accuracy_stat_dict[k] = Accuracy_stat(predict, output_new_dict[k])
+        glv.accuracy_stat_dict[k] = Accuracy_stat(predict, output_new_dict[k],\
+                output_ori_dict[k])

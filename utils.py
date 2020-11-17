@@ -4,7 +4,7 @@ import torch
 import matplotlib.pyplot as plt
 import pycuda.driver as cuda
 import pycuda.autoinit  # Necessary for using its functions
-
+import global_v as glv
 
 # task_train = Progress().add_task("[red]Training...", total=100)
 # task_test = Progress().add_task("[green]Testing...", total=100)
@@ -205,7 +205,14 @@ class learningStats():
         epochStr = 'Epoch : %10d' % (epoch)
         iterStr = '' if iter is None else '(i = %7d)' % (iter)
         profileStr = '' if timeElapsed is None else ', %12.4f s elapsed' % timeElapsed
-
+        if glv.accuracy_stat_dict is None:
+            accuracyStr = 'No Acc data.'
+        else:
+            accuracyStr = 'Acc: '
+            for key in glv.accuracy_stat_dict:
+                total, correct = glv.accuracy_stat_dict[key]
+                accuracyStr += str(total)
+                accuracyStr += '  %.2f%%  '%(float(correct)/float(total)*100)
         if header is not None:
             for h in header:
                 print('\033[2K' + str(h))
@@ -214,7 +221,8 @@ class learningStats():
         print(epochStr + iterStr + profileStr)
         print(self.training.displayString())
         print(self.testing.displayString())
-        self.linesPrinted += 3
+        print(accuracyStr)
+        self.linesPrinted += 4
 
         if footer is not None:
             for f in footer:

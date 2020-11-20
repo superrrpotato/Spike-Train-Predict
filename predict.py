@@ -15,7 +15,7 @@ def Pattern_change_predict(outputs, u, k):
     if k not in glv.dims_dict:
         glv.dims_dict[k] = torch.tensor(list(range(neuron_num)), device = glv.device)
     dim1 = glv.dims_dict[k]
-    near_by = flip_dist[dim1, min_index] < 0.1 # Hard threshold guess change
+    near_by = flip_dist[dim1, min_index] < 1 # Hard threshold guess change
     while near_by.any() == True:
         new_output[dim1, min_index] = new_output[dim1, min_index] ^ near_by
         near_by = near_by & (min_index != time_steps - 1)
@@ -34,17 +34,22 @@ def Accuracy_stat(predict, answer, ori_output):
     predict = predict > 0
     answer = answer > 0
     ori_output = ori_output > 0
-    changed_ans = torch.sum(ori_output == answer, axis=1) < shape[-1]
-    changed_num = torch.sum(changed_ans, dtype = glv.dtype)
-    predict_change = torch.sum(ori_output == predict, axis=1) < shape[-1]
-    predict_num = torch.sum(predict_change, dtype = glv.dtype)
-    currect_predict_per_change = torch.sum(predict_change & changed_ans,\
-            dtype=glv.dtype)/changed_num
-    currect_predict_per_predict = torch.sum(predict_change & changed_ans,\
-            dtype=glv.dtype)/predict_num
-    correct = torch.sum(torch.sum(answer == predict, axis=1) == shape[-1],\
-            dtype = glv.dtype)
-    return currect_predict_per_change, currect_predict_per_predict
+    predict_correcct = (torch.sum(predict == answer, axis=1) == shape[-1])
+    changed_ans = (torch.sum(ori_output == answer, axis=1) < shape[-1])
+    predict_changed_correct = torch.sum(predict_correcct.float() *
+            changed_ans.float())/torch.sum(changed_ans).float()
+
+#    changed_ans = (torch.sum(ori_output == answer, axis=1) < shape[-1])
+#    changed_num = torch.sum(changed_ans, dtype = glv.dtype)
+#    predict_change = torch.sum(ori_output == predict, axis=1) < shape[-1]
+#    predict_num = torch.sum(predict_change, dtype = glv.dtype)
+#    currect_predict_per_change = torch.sum(predict_change & changed_ans,\
+#            dtype=glv.dtype)/changed_num
+#    currect_predict_per_predict = torch.sum(predict_change & changed_ans,\
+#            dtype=glv.dtype)/predict_num
+#    correct = torch.sum(torch.sum(answer == predict, axis=1) == shape[-1],\
+#            dtype = glv.dtype)
+    return predict_changed_correct
 
 
 def Spike_train_predict():

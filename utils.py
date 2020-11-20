@@ -210,10 +210,10 @@ class learningStats():
         else:
             accuracyStr = 'Acc: '
             for key in glv.accuracy_stat_dict:
-                cpc, cpp = glv.accuracy_stat_dict[key]
+                acc = glv.accuracy_stat_dict[key]
                 accuracyStr += str(key)
-                accuracyStr += ' %.2f%%' % (cpc * 100)
-                accuracyStr += ' %.2f%% ' % (cpp * 100)
+                accuracyStr += ' %.2f%% ' % (acc * 100)
+                #accuracyStr += ' %.2f%% ' % (cpp * 100)
         if header is not None:
             for h in header:
                 print('\033[2K' + str(h))

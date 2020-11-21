@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as f
 from time import time
 import global_v as glv
-
+import predict as pre
 
 def psp(inputs, network_config):
     shape = inputs.shape
@@ -70,49 +70,50 @@ class PSP_spike_large_batch(torch.autograd.Function):
         else:
             glv.output_new_dict[name] = outputs
             glv.memb_p_new_dict[name] = mems
-
-        ctx.save_for_backward(mem_updates, outputs, mems, delta_refs, torch.tensor([threshold]))
+        layer_index = glv.layers_name.index(name)
+        ctx.save_for_backward(mem_updates, outputs, mems, delta_refs,\
+                torch.tensor([layer_index]))
         return syns_posts
 
     @staticmethod
     def backward(ctx, grad_delta):
         # in: grad_output: e(l-1)
         # out: grad: delta(l-1)
-        (delta_u, outputs, u, delta_refs, others) = ctx.saved_tensors
+        (delta_u, outputs, u, delta_refs, layer_index) = ctx.saved_tensors
         start_time = time()
         shape = outputs.shape
         n_steps = glv.n_steps
-        threshold = others[0].item()
+        layer_index = layer_index[0].item()
+        name = glv.layers_name[layer_index]
+        threshold = glv.threshold_dict[name]
+        add_or_remove = pre.classify_changes(outputs, u, name)
+        mini_batch = shape[0]
+        partial_a_inter = glv.partial_a.repeat(mini_batch, shape[1], shape[2], shape[3], 1, 1)
+        grad_a = torch.empty_like(delta_u)
 
-        if torch.sum(outputs)/(shape[0] * shape[1] * shape[2] * shape[3] * shape[4]) > 0.1:
-            mini_batch = shape[0]
-            partial_a_inter = glv.partial_a.repeat(mini_batch, shape[1], shape[2], shape[3], 1, 1)
-            grad_a = torch.empty_like(delta_u)
-
-            for i in range(int(shape[0]/mini_batch)):
+        for i in range(int(shape[0]/mini_batch)):
                 # part two, intra-neuron: effect of reset
-                delta_refs_batch = delta_refs[i*mini_batch:(i+1)*mini_batch, ...]
-                partial_a_intra = torch.einsum('...ij, ...jk -> ...ik', partial_a_inter, delta_refs_batch)
+            delta_refs_batch = delta_refs[i*mini_batch:(i+1)*mini_batch, ...]
+            partial_a_intra = torch.einsum('...ij, ...jk -> ...ik', partial_a_inter, delta_refs_batch)
 
                 # part one, inter-neuron + part two, intra-neuron
-                partial_a_all = partial_a_inter + partial_a_intra
+            partial_a_all = partial_a_inter + partial_a_intra
 
-                grad_a[i*mini_batch:(i+1)*mini_batch, ...] = torch.einsum('...ij, ...j -> ...i', partial_a_all, grad_delta[i*mini_batch:(i+1)*mini_batch, ...])
+            grad_a[i*mini_batch:(i+1)*mini_batch, ...] = torch.einsum('...ij, ...j -> ...i', partial_a_all, grad_delta[i*mini_batch:(i+1)*mini_batch, ...])
 
-            partial_u = torch.clamp(-1 / delta_u, -10, 10) * outputs
-            grad = grad_a * partial_u
-        else:
+        partial_u = torch.clamp(-1 / delta_u, -10, 10) * outputs
+        grad = grad_a * partial_u
             # warm up
-            syn = glv.syn_a.repeat(shape[0], shape[1], shape[2], shape[3], 1, 1)
+        syn = glv.syn_a.repeat(shape[0], shape[1], shape[2], shape[3], 1, 1)
 
-            grad_a = torch.einsum('...ij, ...j -> ...i', syn, grad_delta)
+        grad_a_surrogate = torch.einsum('...ij, ...j -> ...i', syn, grad_delta)
 
-            a = 0.2
-            f = torch.clamp((-1 * u + threshold) / a, -8, 8)
-            f = torch.exp(f)
-            f = f / ((1 + f) * (1 + f) * a)
+        a = 0.2
+        f = torch.clamp((-1 * u + threshold) / a, -8, 8)
+        sig = 1 / (1 + torch.exp(f))
+        sig_grad = sig * (1 - sig) / a
 
-            grad = grad_a * f
+        grad = grad_a_surrogate * sig_grad * add_or_remove + grad * sig
         return grad, None, None, None, None, None, None, None, None
 
 

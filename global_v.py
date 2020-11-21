@@ -11,14 +11,16 @@ tau_s = None
 def init(dty, dev, params):   # a(t_k) = (1/tau)exp(-(t_k-t_m)/tau)H(t_k-t_m)
     global dtype, device, n_steps, partial_a, syn_a, tau_s, stat_flag,\
     output_ori_dict, output_new_dict, memb_p_ori_dict, memb_p_new_dict,\
-    accuracy_stat_dict, threshold_dict, dims_dict
+    accuracy_stat_dict, threshold_dict, dims_dict, layers_name
     dtype = dty
     device = dev
     n_steps = params['Network']['n_steps']
     tau_s = params['Network']['tau_s']
     threshold_dict = {}
     layers_config = params['Layers']
+    layers_name = []
     for key in layers_config:
+        layers_name += [key]
         threshold_dict[key] = layers_config[key]['threshold']
     stat_flag  = False
     output_ori_dict = {}

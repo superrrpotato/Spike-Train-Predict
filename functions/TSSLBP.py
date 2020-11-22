@@ -31,8 +31,8 @@ class PSP_spike_large_batch(torch.autograd.Function):
 
         mem = torch.zeros((shape[0], shape[1], shape[2], shape[3]), dtype=glv.dtype, device=glv.device)
         syn = torch.zeros((shape[0], shape[1], shape[2], shape[3]), dtype=glv.dtype, device=glv.device)
-        ref = torch.zeros((shape[0], shape[1], shape[2], shape[3], shape[4]), dtype=glv.dtype, device=glv.device)
-        delta_refs = torch.zeros((shape[0], shape[1], shape[2], shape[3], shape[4], shape[4]), dtype=glv.dtype, device=glv.device)
+#        ref = torch.zeros((shape[0], shape[1], shape[2], shape[3], shape[4]), dtype=glv.dtype, device=glv.device)
+#        delta_refs = torch.zeros((shape[0], shape[1], shape[2], shape[3], shape[4], shape[4]), dtype=glv.dtype, device=glv.device)
         mems = []
         mem_updates = []
         outputs = []
@@ -40,19 +40,19 @@ class PSP_spike_large_batch(torch.autograd.Function):
         outputs = []
         for t in range(n_steps):
             mem_update = (-theta_m) * mem + inputs[..., t]
-            delta_ref = (-theta_m) * ref
+#            delta_ref = (-theta_m) * ref
             mem += mem_update
-            ref += delta_ref
+#            ref += delta_ref
 
             out = mem > threshold
             out = out.type(glv.dtype)
             mems.append(mem)
-            if t > 0:
-                out_tmp = out.unsqueeze(-1).repeat(1, 1, 1, 1, t)
-                ref[..., 0:t] *= (1-out_tmp)
-                delta_ref[..., 0:t] *= out_tmp
-            ref[..., t] = (-1) * mem * out
-            delta_refs[..., 0:t, t] = delta_ref[..., 0:t]
+#            if t > 0:
+#                out_tmp = out.unsqueeze(-1).repeat(1, 1, 1, 1, t)
+#                ref[..., 0:t] *= (1-out_tmp)
+#                delta_ref[..., 0:t] *= out_tmp
+#            ref[..., t] = (-1) * mem * out
+#            delta_refs[..., 0:t, t] = delta_ref[..., 0:t]
 
             mem = mem * (1-out)
             outputs.append(out)
@@ -71,7 +71,7 @@ class PSP_spike_large_batch(torch.autograd.Function):
             glv.output_new_dict[name] = outputs
             glv.memb_p_new_dict[name] = mems
         layer_index = glv.layers_name.index(name)
-        ctx.save_for_backward(mem_updates, outputs, mems, delta_refs,\
+        ctx.save_for_backward(mem_updates, outputs, mems,\
                 torch.tensor([layer_index]))
         return syns_posts
 
@@ -79,7 +79,7 @@ class PSP_spike_large_batch(torch.autograd.Function):
     def backward(ctx, grad_delta):
         # in: grad_output: e(l-1)
         # out: grad: delta(l-1)
-        (delta_u, outputs, u, delta_refs, layer_index) = ctx.saved_tensors
+        (delta_u, outputs, u, layer_index) = ctx.saved_tensors
         start_time = time()
         shape = outputs.shape
         n_steps = glv.n_steps
@@ -88,18 +88,19 @@ class PSP_spike_large_batch(torch.autograd.Function):
         threshold = glv.threshold_dict[name]
         add_or_remove = pre.classify_changes(outputs, u, name)
         mini_batch = shape[0]
-        partial_a_inter = glv.partial_a.repeat(mini_batch, shape[1], shape[2], shape[3], 1, 1)
+        partial_a = glv.partial_a.repeat(mini_batch, shape[1], shape[2], shape[3], 1, 1)
         grad_a = torch.empty_like(delta_u)
 
         for i in range(int(shape[0]/mini_batch)):
                 # part two, intra-neuron: effect of reset
-            delta_refs_batch = delta_refs[i*mini_batch:(i+1)*mini_batch, ...]
-            partial_a_intra = torch.einsum('...ij, ...jk -> ...ik', partial_a_inter, delta_refs_batch)
+            # delta_refs_batch = delta_refs[i*mini_batch:(i+1)*mini_batch, ...]
+            # partial_a_intra = torch.einsum('...ij, ...jk -> ...ik', partial_a_inter, delta_refs_batch)
 
                 # part one, inter-neuron + part two, intra-neuron
-            partial_a_all = partial_a_inter + partial_a_intra
+            #partial_a_all = partial_a_inter + partial_a_intra
 
-            grad_a[i*mini_batch:(i+1)*mini_batch, ...] = torch.einsum('...ij, ...j -> ...i', partial_a_all, grad_delta[i*mini_batch:(i+1)*mini_batch, ...])
+            grad_a[i*mini_batch:(i+1)*mini_batch, ...] = torch.einsum('...ij,\
+                    ...j -> ...i', partial_a, grad_delta[i*mini_batch:(i+1)*mini_batch, ...])
 
         partial_u = torch.clamp(-1 / delta_u, -10, 10) * outputs
         grad = grad_a * partial_u
@@ -112,8 +113,17 @@ class PSP_spike_large_batch(torch.autograd.Function):
         f = torch.clamp((-1 * u + threshold) / a, -8, 8)
         sig = 1 / (1 + torch.exp(f))
         sig_grad = sig * (1 - sig) / a
-
-        grad = grad_a_surrogate * sig_grad * add_or_remove + grad * sig
+        grad_a_surrogate = grad_a_surrogate * sig_grad
+        inter_u = 0.8 * ((1-outputs) - sig_grad * u)
+       #        grad = grad_a_surrogate * sig_grad
+        if torch.sum(outputs)/(shape[0] * shape[1] * shape[2] * shape[3] *\
+                shape[4]) > 0.1:
+            grad = (grad_a_surrogate + grad * sig) * add_or_remove\
+                    + grad * (1 - add_or_remove)
+            for t in range(shape[4]-2,-1,-1):
+                grad[..., t] += grad[..., t+1] * inter_u[..., t]
+        else:
+            grad = grad_a_surrogate
         return grad, None, None, None, None, None, None, None, None
 
 

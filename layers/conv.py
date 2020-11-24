@@ -71,10 +71,11 @@ class ConvLayer(nn.Conv3d):
             raise Exception('dilation can be either int or tuple of size 2. It was: {}'.format(dilation.shape))
 
         super(ConvLayer, self).__init__(in_features, out_features, kernel, stride, padding, dilation, groups,
-                                        bias=False)
-        # nn.init.kaiming_normal_(self.weight)
+                                        bias=True)
+        nn.init.normal_(self.weight)
+        nn.init.zeros_(self.bias)
         self.weight = torch.nn.Parameter(weight_scale * self.weight, requires_grad=True)
-
+        self.bias = torch.nn.Parameter(weight_scale * self.bias, requires_grad=True)
         self.in_shape = in_shape
         self.out_shape = [out_features, int((in_shape[1]+2*padding[0]-kernel[0])/stride[0]+1),
                           int((in_shape[2]+2*padding[1]-kernel[1])/stride[1]+1)]
@@ -89,7 +90,7 @@ class ConvLayer(nn.Conv3d):
                         self.stride, self.padding, self.dilation, self.groups)
 
     def get_parameters(self):
-        return self.weight
+        return [self.weight, self.bias]
 
     def forward_pass(self, x, epoch):
         y = self.forward(x)
@@ -104,5 +105,8 @@ class ConvLayer(nn.Conv3d):
 
     def weight_clipper(self):
         w = self.weight.data
+        b = self.bias.data
         w = w.clamp(-4, 4)
+        b = b.clamp(-4, 4)
         self.weight.data = w
+        self.bias.data = b

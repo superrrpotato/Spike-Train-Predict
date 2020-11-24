@@ -173,7 +173,7 @@ class learningStats():
         self.testing.update()
         self.testing.reset()
 
-    def print(self, epoch, iter=None, timeElapsed=None, header=None, footer=None):
+    def print(self, epoch, iter=None, timeElapsed=None, lr=None, header=None, footer=None):
         '''
         Prints the available learning statistics from the current session on the console.
         For Linux systems, prints the data on same terminal space (might not work properly on other systems).
@@ -205,6 +205,7 @@ class learningStats():
         epochStr = 'Epoch : %10d' % (epoch)
         iterStr = '' if iter is None else '(i = %7d)' % (iter)
         profileStr = '' if timeElapsed is None else ', %12.4f s elapsed' % timeElapsed
+        lrStr = '' if lr is None else '    LearningRate : %3.8f' % lr
         if glv.accuracy_stat_dict is None:
             accuracyStr = 'No Acc data.'
         else:
@@ -219,7 +220,7 @@ class learningStats():
                 print('\033[2K' + str(h))
                 self.linesPrinted += 1
 
-        print(epochStr + iterStr + profileStr)
+        print(epochStr + iterStr + profileStr + lrStr)
         print(self.training.displayString())
         print(self.testing.displayString())
         print(accuracyStr)

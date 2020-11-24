@@ -36,10 +36,12 @@ class LinearLayer(nn.Linear):
         else:
             raise Exception('outFeatures should not be more than 1 dimesnion. It was: {}'.format(out_features.shape))
 
-        super(LinearLayer, self).__init__(n_inputs, n_outputs, bias=False)
+        super(LinearLayer, self).__init__(n_inputs, n_outputs, bias=True)
 
-        nn.init.kaiming_normal_(self.weight)
+        nn.init.normal_(self.weight)
+        nn.init.zeros_(self.bias)
         self.weight = torch.nn.Parameter(weight_scale * self.weight, requires_grad=True)
+        self.bias = torch.nn.Parameter(weight_scale * self.bias, requires_grad=True)
         
         print("linear")
         print(self.name)
@@ -70,9 +72,12 @@ class LinearLayer(nn.Linear):
         return y
 
     def get_parameters(self):
-        return self.weight
+        return [self.weight, self.bias]
 
     def weight_clipper(self):
         w = self.weight.data
+        b = self.bias.data
         w = w.clamp(-4, 4)
+        b = b.clamp(-4, 4)
         self.weight.data = w
+        self.bias.data = b

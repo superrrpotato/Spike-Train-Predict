@@ -15,7 +15,7 @@ def Pattern_change_predict(outputs, u, k):
     if k not in glv.dims_dict:
         glv.dims_dict[k] = torch.tensor(list(range(neuron_num)), device = glv.device)
     dim1 = glv.dims_dict[k]
-    near_by = flip_dist[dim1, min_index] < 1 # Hard threshold guess change
+    near_by = flip_dist[dim1, min_index] < 2.0 # Hard threshold guess change
     while near_by.any() == True:
         new_output[dim1, min_index] = new_output[dim1, min_index] ^ near_by
         near_by = near_by & (min_index != time_steps - 1)

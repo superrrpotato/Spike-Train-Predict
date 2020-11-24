@@ -5,7 +5,7 @@ Network:
   dataset: "MNIST"
   rule: "TSSLBP"
   data_path: "../../datasets/mnist"
-  lr: 0.0002
+  lr: 0.0001
   loss: "kernel"
   n_class: 10
   desired_count: 4
@@ -18,7 +18,7 @@ Layers:
   conv_1:
     type: "conv"
     in_channels: 1
-    out_channels: 15
+    out_channels: 40
     kernel_size: 5
     weight_scale: 1
     padding: 0
@@ -31,7 +31,7 @@ Layers:
 
   conv_2:
     type: "conv"
-    in_channels: 15
+    in_channels: 40
     out_channels: 40
     kernel_size: 5
     weight_scale: 1

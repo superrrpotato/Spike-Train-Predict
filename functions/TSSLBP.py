@@ -109,19 +109,19 @@ class PSP_spike_large_batch(torch.autograd.Function):
 
         grad_a_surrogate = torch.einsum('...ij, ...j -> ...i', syn, grad_delta)
 
-        a = 0.2
+        a = 0.3
         f = torch.clamp((-1 * u + threshold) / a, -8, 8)
         sig = 1 / (1 + torch.exp(f))
         sig_grad = sig * (1 - sig) / a
         grad_a_surrogate = grad_a_surrogate * sig_grad
-        inter_u = 0.8 * ((1-outputs) - sig_grad * u)
+        inter_u = 0.8 * ((1-outputs))# - sig_grad * u)
        #        grad = grad_a_surrogate * sig_grad
         if torch.sum(outputs)/(shape[0] * shape[1] * shape[2] * shape[3] *\
                 shape[4]) > 0.1:
             grad = (grad_a_surrogate + grad * sig) * add_or_remove\
                     + grad * (1 - add_or_remove)
-            for t in range(shape[4]-2,-1,-1):
-                grad[..., t] += grad[..., t+1] * inter_u[..., t]
+            #for t in range(shape[4]-2,-1,-1):
+            #    grad[..., t] += grad[..., t+1] * inter_u[..., t]
         else:
             grad = grad_a_surrogate
         return grad, None, None, None, None, None, None, None, None
